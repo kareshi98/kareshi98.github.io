@@ -1,41 +1,381 @@
 package cn.techaction.controller;
 
-import javax.servlet.http.HttpSession;
+import java.util.List;
 
+import javax.servlet.http.HttpSession;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import cn.techaction.common.ResponseCode;
 import cn.techaction.common.SverResponse;
 import cn.techaction.pojo.User;
 import cn.techaction.service.ActionUserService;
 import cn.techaction.utils.ConstUtil;
+import cn.techaction.vo.ActionUserVo;
 
 @Controller
 @RequestMapping("/mgr/user")
 public class ActionUserController {
-
 	@Autowired
 	private ActionUserService actionUserService;
+	
+	
+	/**
+	 * µÇÂ¼
+	 * @param session
+	 * @param account
+	 * @param password
+	 * @return
+	 */
 	@RequestMapping("/login.do")
 	@ResponseBody
 	public SverResponse<User> doLogin(HttpSession session,String account,String password) {
-		//1.è°ƒç”¨Serviceå±‚æ–¹æ³•ï¼šç™»å½•
-		SverResponse<User> response=actionUserService.doLogin(account, password);
-		
-		//2.åˆ¤æ–­æ˜¯å¦èƒ½ç™»å½•
-		if(response.isSuccess()) {
-			//3.èƒ½ç™»å½•åˆ™åˆ¤æ–­æ˜¯å¦æ˜¯ç®¡ç†å‘˜ï¼Œæ˜¯ç®¡ç†å‘˜å­˜æ”¾åœ¨Sessioné‡Œï¼Œå¦åˆ™æç¤ºé”™è¯¯ä¿¡æ¯
-			User user=response.getData();
+		//1.µ÷ÓÃSevice²ã·½·¨µÇÂ¼
+		SverResponse<User> respons=actionUserService.doLogin(account, password);
+		//2.ÅĞ¶ÏÊÇ·ñÄÜµÇÂ¼
+		if(respons.isSuccess()) {
+			
+			//3.ÄÜµÇÂ¼ÅĞ¶ÏÊÇ·ñÊÇ¹ÜÀíÔ±£¬Ê±¹ÜÀíÔ±ĞÅÏ¢´¢´æÔÚsessionÖĞ
+			User user=respons.getData();
 			if(user.getRole()==ConstUtil.Role.ROLE_ADMIN) {
 				session.setAttribute(ConstUtil.CUR_USER, user);
-				return response;
-			}
-			return SverResponse.createByErrorMessage("ä¸æ˜¯ç®¡ç†å‘˜ï¼Œæ— æ³•ç™»å½•ï¼");
+				return respons;
+			}else if(user.getRole()==ConstUtil.Role.ROLE_CUSTOMER) {
+					session.setAttribute(ConstUtil.CUR_USER, user);
+					return respons;
+			}else
+			return SverResponse.createByErrorMessage("²»ÊÇ¹ÜÀíÔ±£¬ÎŞ·¨µÇÂ¼!");
+			
 		}
-		return response;
-		
+		return respons;
 	}
+	/**
+	 * ÏÔÊ¾ÓÃ»§ĞÅÏ¢
+	 * @param session
+	 * @return
+	 */
+	@RequestMapping("/finduserlist.do")
+	@ResponseBody
+	public SverResponse<List<ActionUserVo>> getUserDetail(HttpSession session) {
+		//1.ÅĞ¶ÏÓÃ»§ÊÇ·ñµÇÂ¼
+		User user=(User)session.getAttribute(ConstUtil.CUR_USER);
+		if(user==null) {
+			return SverResponse.createByErrorCodeMessage(ResponseCode.SUCCESS.getCode(), "ÇëµÇÂ½ºó²Ù×÷!");
+			
+		}
+		//2.ÅĞ¶ÏÊÇ·ñÊÇ¹ÜÀíÔ±
+		
+		SverResponse<String> response=actionUserService.isAdmin(user);
+		if(response.isSuccess()) {
+			//3.µ÷ÓÃserviceÖĞµÄ·½·¨»ñÈ¡ÓÃ»§ĞÅÏ¢
+			return actionUserService.findUserList();
+		}
+		
+		return SverResponse.createByErrorMessage("ÄúÎŞ²Ù×÷È¨ÏŞ!");
+	}
+	/**
+	 * ¸ù¾İid»ñµÃÓÃ»§ĞÅÏ¢
+	 * @param session
+	 * @param id
+	 * @return
+	 */
+	@RequestMapping("/findUser.do")
+	@ResponseBody
+	public SverResponse<ActionUserVo> findUser(HttpSession session,Integer id){
+		//1.ÅĞ¶ÏÓÃ»§ÊÇ·ñµÇÂ¼
+		User user=(User)session.getAttribute(ConstUtil.CUR_USER);
+		if(user==null) {
+			return SverResponse.createByErrorCodeMessage(ResponseCode.SUCCESS.getCode(), "ÇëµÇÂ½ºó²Ù×÷!");
+			
+		}
+		//2.ÅĞ¶ÏÓÃ»§ÊÇ·ñÊÇ¹ÜÀíÔ±
+		SverResponse<String> response=actionUserService.isAdmin(user);
+		if(response.isSuccess()) {
+			//3.µ÷ÓÃserviceÖĞµÄ·½·¨»ñÈ¡ÓÃ»§ĞÅÏ¢
+			return actionUserService.findUser(id);
+		}
+		return SverResponse.createByErrorMessage("ÄúÎŞ²Ù×÷È¨ÏŞ");
+	}
+	/**
+	 * ¸üĞÂÓÃ»§ĞÅÏ¢
+	 * @param session
+	 * @param userVo
+	 * @return
+	 */
+	@RequestMapping("/updateUser.do")
+	@ResponseBody
+	public SverResponse<String> updateUser(HttpSession session,ActionUserVo userVo){
+		//1.ÅĞ¶ÏÓÃ»§ÊÇ·ñµÇÂ¼
+				User user=(User)session.getAttribute(ConstUtil.CUR_USER);
+				if(user==null) {
+					return SverResponse.createByErrorCodeMessage(ResponseCode.SUCCESS.getCode(), "ÇëµÇÂ½ºó²Ù×÷!");
+					
+				}
+				//2.ÅĞ¶ÏÓÃ»§ÊÇ·ñÊÇ¹ÜÀíÔ±
+				SverResponse<String> response=actionUserService.isAdmin(user);
+				if(response.isSuccess()) {
+					//3.µ÷ÓÃserviceÖĞµÄ·½·¨¸üĞÂÓÃ»§ĞÅÏ¢
+					return actionUserService.updateUserInfo(userVo);
+				}
+		return SverResponse.createByErrorMessage("ÄúÎŞ²Ù×÷È¨ÏŞ£¡");
+	}
+	/**
+	 * É¾³ıÓÃ»§
+	 * @param session
+	 * @param id
+	 * @return
+	 */
+	@RequestMapping("/deleteUsers.do")
+	@ResponseBody
+	public SverResponse<String> delUsers(HttpSession session,Integer id){
+		//1.ÅĞ¶ÏÓÃ»§ÊÇ·ñµÇÂ¼
+				User user=(User)session.getAttribute(ConstUtil.CUR_USER);
+				if(user==null) {
+					return SverResponse.createByErrorCodeMessage(ResponseCode.SUCCESS.getCode(), "ÇëµÇÂ½ºó²Ù×÷!");
+					
+				}
+				//2.ÅĞ¶ÏÓÃ»§ÊÇ·ñÊÇ¹ÜÀíÔ±
+				SverResponse<String> response=actionUserService.isAdmin(user);
+				if(response.isSuccess()) {
+					//3.µ÷ÓÃserviceÖĞµÄ·½·¨É¾³ıÓÃ»§ĞÅÏ¢
+					return actionUserService.delUser(id);
+				}
+		
+		return SverResponse.createByErrorMessage("ÄúÎŞ²Ù×÷È¨ÏŞ£¡");
+	}
+	/**
+	 * ÏÔÊ¾ÓÃ»§ĞÅÏ¢
+	 * @param session
+	 * @return
+	 */
+	@RequestMapping("/getuserinfo.do")
+	@ResponseBody
+	public SverResponse<List<User>> getUserInfo(HttpSession session) {
+		//1.ÅĞ¶ÏÓÃ»§ÊÇ·ñµÇÂ¼
+		User user=(User)session.getAttribute(ConstUtil.CUR_USER);
+		if(user==null) {
+			return SverResponse.createByErrorCodeMessage(ResponseCode.SUCCESS.getCode(), "ÇëµÇÂ½ºó²Ù×÷!");
+			
+		}
+		//2.ÅĞ¶ÏÊÇ·ñÊÇ¹ÜÀíÔ±
+		
+		SverResponse<String> response=actionUserService.isAdmin(user);
+		if(response.isSuccess()) {
+			//3.µ÷ÓÃserviceÖĞµÄ·½·¨»ñÈ¡ÓÃ»§ĞÅÏ¢
+			return actionUserService.findUserInfo();
+		}
+		
+		return SverResponse.createByErrorMessage("ÄúÎŞ²Ù×÷È¨ÏŞ!");
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	/**
+	 * µÇÂ¼
+	 * @param session
+	 * @param account
+	 * @param password
+	 * @return
+	 */
+	@RequestMapping("/do_login.do")
+	@ResponseBody
+	public SverResponse<User> do_Login(HttpSession session,String account,String password) {
+		//1.µ÷ÓÃSevice²ã·½·¨µÇÂ¼
+		SverResponse<User> respons=actionUserService.doLogin(account, password);
+		//2.ÅĞ¶ÏÊÇ·ñÄÜµÇÂ¼
+		if(respons.isSuccess()) {
+			
+			//3.ÄÜµÇÂ¼ÅĞ¶ÏÊÇ·ñÊÇÓÃ»§£¬ĞÅÏ¢´¢´æÔÚsessionÖĞ
+			User user=respons.getData();
+			if(user.getRole()==ConstUtil.Role.ROLE_CUSTOMER) {
+				session.setAttribute(ConstUtil.CUR_USER, user);
+				return respons;
+			}
+			return SverResponse.createByErrorMessage("Î´×¢²á£¬ÎŞ·¨µÇÂ¼!");
+			
+		}
+		return respons;
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	/**
+	 * ÓÃ»§ÑéÖ¤
+	 * @param info
+	 * @param type
+	 * @return
+	 */
+	@RequestMapping( value = "/do_check_info.do", method = RequestMethod.POST)
+    @ResponseBody
+    public SverResponse<String> checkValidUserInfo(String info, String type) {
+        return actionUserService.checkValidation(info, type);
+    }
+	
+	/**
+	 * ÓÃ»§×¢²á
+	 * @param user
+	 * @return
+	 */
+	@RequestMapping(value="/do_register.do",method=RequestMethod.POST)
+	@ResponseBody
+	public SverResponse<String> registerUser(User user){
+		return actionUserService.doRegister(user);
+	}
+	
+	/**
+	 * ÑéÖ¤ÓÃ»§£¬»ñµÃÓÃ»§¶ÔÏó
+	 * @param account
+	 * @return
+	 */
+	@RequestMapping(value="/getuserbyaccount.do",method=RequestMethod.POST)
+	@ResponseBody
+	public SverResponse<User> getUserByAccount(String account){
+		
+		return actionUserService.findUserByAccount(account);
+	}
+	
+	/**
+	 * ÑéÖ¤ÓÃ»§ÃÜÂëÌáÊ¾ÎÊÌâ´ğ°¸
+	 * @param account
+	 * @param question
+	 * @param asw
+	 * @return
+	 */
+	@RequestMapping(value="/checkuserasw.do",method=RequestMethod.POST)
+	@ResponseBody
+	public SverResponse<String> checkUserAnswer(String account,String question,String asw){
+		return actionUserService.checkUserAnswer(account,question,asw);
+	}
+	
+	/**
+	 * ÖØÖÃÃÜÂë
+	 * @param userId
+	 * @param newpwd
+	 * @return
+	 */
+	@RequestMapping(value="/resetpassword.do",method=RequestMethod.POST)
+	@ResponseBody
+	public SverResponse<String> resetPassword(Integer userId,String newpwd){
+		return actionUserService.resetPassword(userId,newpwd);
+	}
+	
+	/**
+	 * ¸ù¾İid»ñµÃÓÃ»§ĞÅÏ¢
+	 * @param session
+	 * @param id
+	 * @return
+	 */
+//	@RequestMapping(value="/finduser.do",method=RequestMethod.POST)
+//	@ResponseBody
+//	public SverResponse<ActionUserVo> findUser(HttpSession session,Integer id){
+//		//1.ÅĞ¶ÏÓÃ»§ÊÇ·ñµÇÂ¼
+//		User user=(User)session.getAttribute(ConstUtil.CUR_USER);
+//		if(user==null) {
+//			return SverResponse.createByErrorCodeMessage(ResponseCode.SUCCESS.getCode(), "ÇëµÇÂ¼ºóÔÙ½øĞĞ²Ù×÷£¡");
+//		}
+//		//2.ÓÃ»§ÊÇ²»ÊÇ¹ÜÀíÔ±
+//		SverResponse<String> response=actionUserService.isAdmin(user);
+//		if(response.isSuccess()) {
+//			//3.µ÷ÓÃServiceÖĞµÄ·½·¨»ñµÃÏàÓ¦idµÄÓÃ»§ĞÅÏ¢
+//			return actionUserService.findUser(id);
+//		}
+//		return SverResponse.createByErrorMessage("±§Ç¸£¬ÄúÎŞ²Ù×÷È¨ÏŞ£¡");
+//	}
+	
+//	/**
+//	 * ¸üĞÂÓÃ»§ĞÅÏ¢
+//	 * @param session
+//	 * @param userVo
+//	 * @return
+//	 */
+//	@RequestMapping(value="/updateuserinfo.do",method=RequestMethod.POST)
+//	@ResponseBody
+//	public SverResponse<User>  updateUser(HttpSession session,ActionUserVo userVo){
+//		//1.ÅĞ¶ÏÓÃ»§ÊÇ·ñµÇÂ¼
+//			User curUser = (User)session.getAttribute(ConstUtil.CUR_USER);
+//			if(curUser==null) {
+//					return SverResponse.createByErrorMessage("ÇëµÇÂ¼ºóÔÙ½øĞĞ²Ù×÷£¡");
+//			}
+//			//2.ÓÃ»§ÊÇ²»ÊÇ¹ÜÀíÔ±
+//			userVo.setId(curUser.getId());
+//			userVo.setAccount(curUser.getAccount());
+//			SverResponse<User> resp = actionUserService.updateUserInfo(userVo);
+//			if(resp.isSuccess()) {
+//				//3.µ÷ÓÃServiceÖĞµÄ·½·¨¸üĞÂÓÃ»§ĞÅÏ¢
+//				session.setAttribute(ConstUtil.CUR_USER, resp.getData());
+//			}
+//			return resp;
+//	}
+	
+	/**
+	 * ĞŞ¸ÄÃÜÂë
+	 * @param session
+	 * @param newwd
+	 * @param oldwd
+	 * @return
+	 */
+	@RequestMapping(value="/updatepassword.do",method=RequestMethod.POST)
+	@ResponseBody
+	public SverResponse<String> updatePassword(HttpSession session,String newpwd,String oldpwd) {
+		//½«sessionÈ¡³ö
+		User user=(User)session.getAttribute(ConstUtil.CUR_USER);
+		if (user==null) {
+			return SverResponse.createByErrorMessage("ÇëÏÈµÇÂ¼£¡");
+		}
+		SverResponse<String> result=actionUserService.updatePassword(user,newpwd,oldpwd);
+		//ĞŞ¸Äºó½«sessionÇå¿Õ
+		if (result.isSuccess()) {
+			session.removeAttribute(ConstUtil.CUR_USER);
+		}
+		return  result;
+	}
+	/**
+	 * »ñµÃÓÃ»§ĞÅÏ¢
+	 * @param session
+	 * @return
+	 */
+	@RequestMapping( value = "/getuserinfo.do",method = RequestMethod.GET)
+    @ResponseBody
+    public SverResponse<User> getUserInfoByUser(HttpSession session) {
+        User user = (User)session.getAttribute(ConstUtil.CUR_USER);
+        return user != null ? SverResponse.createRespBySuccess(user) : SverResponse.createByErrorMessage("ÎŞ·¨»ñÈ¡ÓÃ»§ĞÅÏ¢£¡");
+    }
+/**
+	 * ÓÃ»§µÇ³ö
+	 * @param session
+	 * @return
+	 */
+	 @RequestMapping("/do_logout.do")
+	 @ResponseBody
+	 public SverResponse<String> loginOut(HttpSession session){
+		 session.removeAttribute(ConstUtil.CUR_USER);
+		 return SverResponse.createRespBySuccess();
+	 }
 }
