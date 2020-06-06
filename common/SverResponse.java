@@ -4,7 +4,7 @@ import java.io.Serializable;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 
-//字段为空的话，不序列化进json数据，即不像前台返回空的值。
+//�ֶ�Ϊ�յĻ��������л���json���ݣ�������ǰ̨���ؿյ�ֵ��
 @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
 public class SverResponse<T> implements Serializable {
 
